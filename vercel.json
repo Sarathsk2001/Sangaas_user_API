@@ -1,0 +1,15 @@
+{
+    "builds": [
+      {
+        "src": "Sangaas.py",
+        "use": "@vercel/python"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "Sangaas.py"
+      }
+    ]
+  }
+  

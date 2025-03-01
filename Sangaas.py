@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 
-app =FastAPI()
+app = FastAPI()
 
-@app.get("/hello world")
-def index():
-    return{"HI hellocdworld"}
+@app.get("/")
+def home():
+    return {"message": "Hello from FastAPI on Vercel!"}
