@@ -49,12 +49,12 @@ async def create_user(product: User):
 
 @app.get("/users/", response_model=List[dict])
 async def get_users():
-    users = await collection.find().to_list(100)
+    users = await db.user.find().to_list(100)
     return [user_serializer(u) for u in users]
 
 @app.get("/user/{user_id}")
 async def get_user_by_id(user_id: str):
-    user = await collection.find_one({"_id": ObjectId(user_id)})
+    user = await db.user.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="user not found")
     return user_serializer(user)
@@ -73,7 +73,7 @@ async def update_user(user_id: str, user: User):
 
 @app.delete("/user/{user_id}")
 async def delete_user(user_id: str):
-    result = await collection.delete_one({"_id": ObjectId(user_id)})
+    result = await db.user.delete_one({"_id": ObjectId(user_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="user not found")
     return {"message": "Puser deleted successfully"}
