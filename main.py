@@ -56,7 +56,7 @@ app.add_middleware(
 @app.get("/users")
 async def root():
     """Health check endpoint"""
-    return {"message": "API is running"}
+    return {"message": "API is runnings"}
 
 @app.post("/user", response_model=dict)
 async def create_user(user: User):
