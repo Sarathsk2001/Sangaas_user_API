@@ -18,17 +18,21 @@ load_dotenv()
 app = FastAPI()
 
 # Get MongoDB URI from environment variables - DO NOT hardcode credentials
-MONGO_URI = os.getenv("mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
+MONGO_URI = os.getenv("MONGO_URI")  # Get MongoDB URI from environment variables
+DATABASE_NAME = os.getenv("DATABASE_NAME", "career")  # Default to "career" if not set
 
 # MongoDB connection handler
 async def get_database():
     try:
-        client = AsyncIOMotorClient(MONGO_URI)
+        client = AsyncIOMotorClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=5000  # 5-second timeout to prevent slow connections
+        )
         return client[DATABASE_NAME]
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
         raise HTTPException(status_code=500, detail="Database connection error")
+
 
 class User(BaseModel):
     id: str = None
