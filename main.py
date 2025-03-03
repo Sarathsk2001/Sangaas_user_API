@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,7 +7,6 @@ from bson import ObjectId
 import os
 from dotenv import load_dotenv
 import logging
-import json
 
 # Set up logging to help debug issues
 logging.basicConfig(level=logging.INFO)
@@ -18,33 +17,18 @@ load_dotenv()
 
 app = FastAPI()
 
-# Get MongoDB URI from environment variables
-MONGO_URI = os.getenv("MONGO_URI")
+# Get MongoDB URI from environment variables - DO NOT hardcode credentials
+MONGO_URI = os.getenv("mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
 
-# Create a global variable for the MongoDB client to reuse connections
-mongodb_client = None
-
-# Database connection dependency
+# MongoDB connection handler
 async def get_database():
-    global mongodb_client
     try:
-        # Reuse existing client if available
-        if mongodb_client is None:
-            logger.info("Creating new MongoDB client connection")
-            mongodb_client = AsyncIOMotorClient(
-                MONGO_URI,
-                serverSelectionTimeoutMS=5000,  # 5 second timeout
-                connectTimeoutMS=10000,         # 10 second timeout
-                socketTimeoutMS=45000,          # 45 second timeout
-            )
-            # Test the connection
-            await mongodb_client.admin.command('ping')
-            logger.info("Successfully connected to MongoDB")
-        return mongodb_client[DATABASE_NAME]
+        client = AsyncIOMotorClient(MONGO_URI)
+        return client[DATABASE_NAME]
     except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database connection error: {str(e)}")
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise HTTPException(status_code=500, detail="Database connection error")
 
 class User(BaseModel):
     id: str = None
@@ -72,36 +56,13 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Health check endpoint"""
-    # Add environment variable check to debug in production
-    mongo_uri_exists = "MONGO_URI exists" if MONGO_URI else "MONGO_URI is missing"
-    return {
-        "message": "API is running",
-        "env_check": mongo_uri_exists,
-        "database": DATABASE_NAME
-    }
-
-@app.get("/test-db-connection")
-async def test_db_connection():
-    """Test database connection"""
-    try:
-        db = await get_database()
-        # Just check if we can list collections
-        collections = await db.list_collection_names()
-        return {
-            "status": "success",
-            "message": "Database connection successful",
-            "collections": collections
-        }
-    except Exception as e:
-        logger.error(f"Error testing database connection: {str(e)}")
-        return {
-            "status": "error",
-            "message": f"Database connection error: {str(e)}"
-        }
+    return {"message": "API is running"}
 
 @app.post("/user", response_model=dict)
-async def create_user(user: User, db=Depends(get_database)):
+async def create_user(user: User):
     try:
+        # Get database connection
+        db = await get_database()
         collection = db["user"]
         
         # Convert to dict
@@ -124,33 +85,17 @@ async def create_user(user: User, db=Depends(get_database)):
 @app.get("/users", response_model=List[dict])
 async def get_users():
     try:
-        # Create a new client for this request
-        client = AsyncIOMotorClient(MONGO_URI)
-        db = client[DATABASE_NAME]
+        # Get database connection
+        db = await get_database()
+        collection = db["user"]
         
-        # Make sure we're using the correct collection name
-        collection = db["user"]  # This should match your actual collection name
-        
-        logger.info(f"Connected to database: {DATABASE_NAME}, collection: user")
-        
-        # Use a simple empty query to get all documents
-        users = await collection.find({}).to_list(100)
-        
-        logger.info(f"Found {len(users)} users in collection")
-        
-        # Log the first user to debug
-        if users and len(users) > 0:
-            logger.info(f"First user: {users[0]}")
-        
-        # Transform and return the data
+        logger.info("Fetching users from MongoDB")
+        users = await collection.find().to_list(100)
+        logger.info(f"Found {len(users)} users")
         return [user_serializer(u) for u in users]
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}")
-        # Return a more descriptive error for debugging
-        return {
-            "error": str(e),
-            "message": "Failed to fetch users from database"
-        }
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # This is only used when running locally
 if __name__ == "__main__":
