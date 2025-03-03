@@ -122,17 +122,35 @@ async def create_user(user: User, db=Depends(get_database)):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/users", response_model=List[dict])
-async def get_users(db=Depends(get_database)):
+async def get_users():
     try:
-        collection = db["user"]
+        # Create a new client for this request
+        client = AsyncIOMotorClient(MONGO_URI)
+        db = client[DATABASE_NAME]
         
-        logger.info("Fetching users from MongoDB")
-        users = await collection.find().to_list(100)
-        logger.info(f"Found {len(users)} users")
+        # Make sure we're using the correct collection name
+        collection = db["user"]  # This should match your actual collection name
+        
+        logger.info(f"Connected to database: {DATABASE_NAME}, collection: user")
+        
+        # Use a simple empty query to get all documents
+        users = await collection.find({}).to_list(100)
+        
+        logger.info(f"Found {len(users)} users in collection")
+        
+        # Log the first user to debug
+        if users and len(users) > 0:
+            logger.info(f"First user: {users[0]}")
+        
+        # Transform and return the data
         return [user_serializer(u) for u in users]
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        # Return a more descriptive error for debugging
+        return {
+            "error": str(e),
+            "message": "Failed to fetch users from database"
+        }
 
 # This is only used when running locally
 if __name__ == "__main__":
