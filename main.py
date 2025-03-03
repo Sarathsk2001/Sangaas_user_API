@@ -18,9 +18,9 @@ load_dotenv()
 app = FastAPI()
 
 # Get MongoDB URI from environment variables - DO NOT hardcode credentials
-MONGO_URI = os.getenv("MONGO_URI")
+# Update this part
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
-
 # MongoDB connection handler
 async def get_database():
     try:
@@ -92,12 +92,39 @@ async def get_users():
         logger.info("Fetching users from MongoDB")
         users = await collection.find().to_list(100)
         logger.info(f"Found {len(users)} users")
-        return {"message": " gett is running"}
- #[user_serializer(u) for u in users]
+        # Replace this line:
+        # return {"message": "API is running"}
+        # With this:
+        return [user_serializer(u) for u in users]
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    
 
+@app.get("/debug")
+async def debug_connection():
+    """Debug endpoint to test database connection"""
+    try:
+        # Get database connection
+        db = await get_database()
+        collection = db["user"]
+        
+        # Test connection
+        count = await collection.count_documents({})
+        return {
+            "connected": True,
+            "database": DATABASE_NAME,
+            "collection": "user",
+            "document_count": count
+        }
+    except Exception as e:
+        logger.error(f"Debug connection error: {str(e)}")
+        return {
+            "connected": False,
+            "error": str(e),
+            "mongo_uri_set": bool(MONGO_URI),
+            "database_name_set": bool(DATABASE_NAME)
+        }
 # This is only used when running locally
 if __name__ == "__main__":
     import uvicorn
