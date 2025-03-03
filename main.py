@@ -59,7 +59,7 @@ async def root():
     return {"message": "API is running"}'''
 
 
-@app.get("/users", response_model=List[dict])
+@app.get("/", response_model=List[dict])
 async def get_users():
     try:
         # Get database connection
