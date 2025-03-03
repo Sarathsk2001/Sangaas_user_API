@@ -53,7 +53,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
+@app.get("/users")
 async def root():
     """Health check endpoint"""
     return {"message": "API is running"}
@@ -82,7 +82,7 @@ async def create_user(user: User):
         logger.error(f"Error creating user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/users", response_model=List[dict])
+@app.get("/", response_model=List[dict])
 async def get_users():
     try:
         # Get database connection
