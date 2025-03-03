@@ -4,14 +4,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+import os
+from dotenv import load_dotenv
+import logging
+
+# Set up logging to help debug issues
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI()
-MONGO_URI = "mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-DATABASE_NAME = "career"
-client = AsyncIOMotorClient(MONGO_URI)
-db = client[DATABASE_NAME]
-collection = db["user"]
+# Get MongoDB URI from environment variables
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
+
+# Initialize MongoDB connection
+try:
+    client = AsyncIOMotorClient(MONGO_URI)
+    db = client[DATABASE_NAME]
+    collection = db["user"]
+    logger.info("Connected to MongoDB Atlas")
+except Exception as e:
+    logger.error(f"Failed to connect to MongoDB: {e}")
 
 class User(BaseModel):
     id: str = None
@@ -36,25 +53,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    """Health check endpoint"""
+    return {"message": "API is running"}
+
 @app.post("/user", response_model=dict)
 async def create_user(user: User):
-    # Convert to dict - note: using .dict() method, not .dict property
-    user_dict = user.dict(exclude={"id"})
-    
-    # Insert into MongoDB
-    new_user = await collection.insert_one(user_dict)
-    
-    # Retrieve the created user
-    created_user = await collection.find_one({"_id": new_user.inserted_id})
-    
-    if created_user:
-        return user_serializer(created_user)
-    raise HTTPException(status_code=400, detail="User creation failed")
+    try:
+        # Convert to dict
+        user_dict = user.dict(exclude={"id"})
+        
+        # Insert into MongoDB
+        new_user = await collection.insert_one(user_dict)
+        logger.info(f"Created user with ID: {new_user.inserted_id}")
+        
+        # Retrieve the created user
+        created_user = await collection.find_one({"_id": new_user.inserted_id})
+        
+        if created_user:
+            return user_serializer(created_user)
+        raise HTTPException(status_code=400, detail="User creation failed")
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/users/", response_model=List[dict])
+@app.get("/users", response_model=List[dict])
 async def get_users():
-    users = await collection.find().to_list(100)
-    return [user_serializer(u) for u in users]
+    try:
+        logger.info("Fetching users from MongoDB")
+        users = await collection.find().to_list(100)
+        logger.info(f"Found {len(users)} users")
+        return [user_serializer(u) for u in users]
+    except Exception as e:
+        logger.error(f"Error fetching users: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Add this if you want to run the app locally
 if __name__ == "__main__":
