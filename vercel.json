@@ -1,9 +1,19 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "wsgi.py"
+      "dest": "main.py"
     }
-  ]
+  ],
+  "env": {
+    "MONGO_URI": "mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+    "DATABASE_NAME": "career"
+  }
 }

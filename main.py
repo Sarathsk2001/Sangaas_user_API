@@ -18,21 +18,17 @@ load_dotenv()
 app = FastAPI()
 
 # Get MongoDB URI from environment variables - DO NOT hardcode credentials
-MONGO_URI = os.getenv("MONGO_URI")  # Get MongoDB URI from environment variables
-DATABASE_NAME = os.getenv("DATABASE_NAME", "career")  # Default to "career" if not set
+MONGO_URI = os.getenv("MONGO_URI")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
 
 # MongoDB connection handler
 async def get_database():
     try:
-        client = AsyncIOMotorClient(
-            MONGO_URI,
-            serverSelectionTimeoutMS=5000  # 5-second timeout to prevent slow connections
-        )
+        client = AsyncIOMotorClient(MONGO_URI)
         return client[DATABASE_NAME]
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
         raise HTTPException(status_code=500, detail="Database connection error")
-
 
 class User(BaseModel):
     id: str = None
@@ -57,13 +53,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-'''@app.get("/")
+@app.get("/")
 async def root():
     """Health check endpoint"""
-    return {"message": "API is running"}'''
+    return {"message": "API is running"}
 
+@app.post("/user", response_model=dict)
+async def create_user(user: User):
+    try:
+        # Get database connection
+        db = await get_database()
+        collection = db["user"]
+        
+        # Convert to dict
+        user_dict = user.dict(exclude={"id"})
+        
+        # Insert into MongoDB
+        new_user = await collection.insert_one(user_dict)
+        logger.info(f"Created user with ID: {new_user.inserted_id}")
+        
+        # Retrieve the created user
+        created_user = await collection.find_one({"_id": new_user.inserted_id})
+        
+        if created_user:
+            return user_serializer(created_user)
+        raise HTTPException(status_code=400, detail="User creation failed")
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/", response_model=List[dict])
+@app.get("/users", response_model=List[dict])
 async def get_users():
     try:
         # Get database connection
