@@ -24,11 +24,19 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
 # MongoDB connection handler
 async def get_database():
     try:
-        client = AsyncIOMotorClient(MONGO_URI)
+        if not MONGO_URI:
+            logger.error("MONGO_URI is missing! Check Vercel environment variables.")
+            raise HTTPException(status_code=500, detail="Database connection error: MONGO_URI is missing")
+
+        client = AsyncIOMotorClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=5000  # 5-second timeout
+        )
         return client[DATABASE_NAME]
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
-        raise HTTPException(status_code=500, detail="Database connection error")
+        raise HTTPException(status_code=500, detail=f"Database connection error: {str(e)}")
+
 
 class User(BaseModel):
     id: str = None
