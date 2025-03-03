@@ -17,18 +17,18 @@ load_dotenv()
 
 app = FastAPI()
 
-# Get MongoDB URI from environment variables
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://SarathKumar2001:SarathKumar@cluster0.vianz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+# Get MongoDB URI from environment variables - DO NOT hardcode credentials
+MONGO_URI = os.getenv("MONGO_URI")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "career")
 
-# Initialize MongoDB connection
-try:
-    client = AsyncIOMotorClient(MONGO_URI)
-    db = client[DATABASE_NAME]
-    collection = db["user"]
-    logger.info("Connected to MongoDB Atlas")
-except Exception as e:
-    logger.error(f"Failed to connect to MongoDB: {e}")
+# MongoDB connection handler
+async def get_database():
+    try:
+        client = AsyncIOMotorClient(MONGO_URI)
+        return client[DATABASE_NAME]
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise HTTPException(status_code=500, detail="Database connection error")
 
 class User(BaseModel):
     id: str = None
@@ -61,6 +61,10 @@ async def root():
 @app.post("/user", response_model=dict)
 async def create_user(user: User):
     try:
+        # Get database connection
+        db = await get_database()
+        collection = db["user"]
+        
         # Convert to dict
         user_dict = user.dict(exclude={"id"})
         
@@ -81,6 +85,10 @@ async def create_user(user: User):
 @app.get("/users", response_model=List[dict])
 async def get_users():
     try:
+        # Get database connection
+        db = await get_database()
+        collection = db["user"]
+        
         logger.info("Fetching users from MongoDB")
         users = await collection.find().to_list(100)
         logger.info(f"Found {len(users)} users")
@@ -89,7 +97,7 @@ async def get_users():
         logger.error(f"Error fetching users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-# Add this if you want to run the app locally
+# This is only used when running locally
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
