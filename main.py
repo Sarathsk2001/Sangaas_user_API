@@ -74,7 +74,7 @@ async def root():
     """Health check endpoint"""
     return {"message": "API is running"}
 
-@app.post("/user", response_model=dict)
+@app.post("/create-program", response_model=dict)
 async def create_user(user: User):
     try:
         # Get database connection
@@ -98,7 +98,7 @@ async def create_user(user: User):
         logger.error(f"Error creating user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/users", response_model=List[dict])
+@app.get("/get-program", response_model=List[User])
 async def get_users():
     try:
         # Get database connection
